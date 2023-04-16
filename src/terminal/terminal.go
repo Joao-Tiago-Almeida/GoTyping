@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -58,9 +59,10 @@ func close_termbox() {
 
 func run_lesson(sentence string) bool {
 
-	n_words := count_words(sentence, "_")
+	sentence = strings.Replace(sentence, " ", "_", -1)
+	n_words, n_spaces := count_words(sentence, "_"), 0
 	current_key := ""
-	n_keys_right := 0
+	n_keys_right, right_key := 0, false
 	running := false
 	var start time.Time
 	var elapsed float64
@@ -79,7 +81,9 @@ func run_lesson(sentence string) bool {
 	}()
 
 	// Main loop
-	fmt.Printf("%s", WHITE(sentence))
+	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+	print(0, 0, sentence, termbox.ColorDefault, termbox.ColorDefault)
+
 	for {
 		select {
 		case event := <-keyEvents:
@@ -100,13 +104,17 @@ func run_lesson(sentence string) bool {
 				// Handle space
 				current_key = "_"
 			}
-			n_keys_right = update_key(current_key, sentence, n_keys_right)
+			n_keys_right, right_key = update_key(current_key, sentence, n_keys_right)
+			if right_key && event.Key == termbox.KeySpace {
+				n_spaces++
+				update_time(60.0 * float64(n_spaces) / (float64(time.Since(start).Milliseconds()) / 1000.0))
+			}
 
 			// Check if it is the last sentence
 			if n_keys_right == len(sentence) {
 				elapsed = float64(time.Since(start).Milliseconds()) / 1000.0
 				running = false
-				fmt.Printf(" :: wpm: %.3f\n", 60.0*float64(n_words)/elapsed)
+				update_time(60.0 * float64(n_words) / elapsed)
 				return true
 			}
 
@@ -128,22 +136,56 @@ func count_words(s string, del string) int {
 	return count
 }
 
-func update_key(key string, sentence string, n_keys_right int) int {
+func update_key(key string, sentence string, n_keys_right int) (int, bool) {
 
-	var correct_keys, incorrect_key, remaining_keys string = "", "", ""
+	// var correct_keys, incorrect_key, remaining_keys string = "", "", ""
+
+	var right_key = false
 
 	if key == string(sentence[n_keys_right]) {
 		n_keys_right++ // increment the number of correct keys
-		correct_keys = sentence[:n_keys_right]
-		remaining_keys = sentence[n_keys_right:]
-	} else {
-		correct_keys = sentence[:n_keys_right]
-		incorrect_key = string(sentence[n_keys_right])
-		remaining_keys = sentence[n_keys_right+1:]
+		right_key = true
+		// 	correct_keys = sentence[:n_keys_right]
+		// 	remaining_keys = sentence[n_keys_right:]
+		// } else {
+		// 	correct_keys = sentence[:n_keys_right]
+		// 	incorrect_key = string(sentence[n_keys_right])
+		// 	remaining_keys = sentence[n_keys_right+1:]
 	}
 
-	fmt.Printf("\r%s", GREEN(correct_keys)) // already correct keys
-	fmt.Printf("%s", RED(incorrect_key))    // current incorrect  key
-	fmt.Printf("%s", WHITE(remaining_keys)) // remaining keys
-	return n_keys_right
+	// fmt.Printf("\r%s", GREEN(correct_keys)) // already correct keys
+	// fmt.Printf("%s", RED(incorrect_key))    // current incorrect key
+	// fmt.Printf("%s", WHITE(remaining_keys)) // remaining keys
+
+	if n_keys_right > 0 {
+		print(n_keys_right-1, 0, string(sentence[n_keys_right-1]), termbox.ColorLightMagenta, termbox.ColorDefault)
+	}
+
+	return n_keys_right, right_key
+}
+
+func print(x, y int, s string, fg, bg termbox.Attribute) {
+	x_size, _ := termbox.Size()
+	offset := 15
+
+	xx, yy := 0, 0
+
+	for i, c := range s {
+		xx = (x + i) % (x_size - offset)
+		yy = y + (x+i)/(x_size-offset)
+
+		termbox.SetCell(xx, yy, c, fg, bg)
+	}
+	termbox.Flush()
+}
+
+func update_time(time float64) {
+	s_time := fmt.Sprintf(" :: wpm: %.3f\n", time)
+	x_size, _ := termbox.Size()
+	offset := 15
+
+	for i, c := range s_time {
+		termbox.SetCell(x_size-offset+i, 0, c, termbox.ColorDefault, termbox.ColorDefault)
+	}
+	termbox.Flush()
 }

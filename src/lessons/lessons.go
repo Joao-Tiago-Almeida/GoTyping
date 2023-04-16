@@ -2,22 +2,31 @@ package lessons
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 )
 
-func GenerateLessons(ch_lessons chan []string) {
-	// Generate lessons and send them to the channel
-	sentence := "This_is_a_sentence_to_be_guessed."
-	broadcast_message := []string{"terminal", sentence}
+func random_sentence(corpus []string) string {
+	return corpus[rand.Int()%len(corpus)]
+}
 
-	ch_lessons <- broadcast_message
+func broadcast_message(message string) []string {
+	return []string{"terminal", message}
+}
+
+func GenerateLessons(ch_lessons chan []string) {
+	// Extract the plain text from the Wikipedia page
+	corpus := Wikipedia("Go_(programming_language)")
+
+	// Generate lessons and send them to the channel
+	ch_lessons <- broadcast_message(random_sentence(corpus))
 
 	for {
 		select {
 		case message := <-ch_lessons:
 			if message[0] == "lessons" {
 				if message[1] == "yes" {
-					ch_lessons <- broadcast_message
+					ch_lessons <- broadcast_message(random_sentence(corpus))
 				} else {
 					fmt.Println("Nice pratice!")
 					close(ch_lessons)
