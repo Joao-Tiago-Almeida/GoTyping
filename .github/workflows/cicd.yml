@@ -1,0 +1,24 @@
+name: GoTyping CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  build:
+    uses: Joao-Tiago-Almeida/github-base-templates/.github/workflows/build.yml@main
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    with:
+      IMAGE_NAME: github-base-templates
+      IMAGE_TAG: ${{ github.event.repository.name }}-rc
+
+  tag:
+    needs: build
+    uses: Joao-Tiago-Almeida/github-base-templates/.github/workflows/tag.yml@main
+    with:
+      OLD_IMAGE_NAME: github-base-templates:${{ github.event.repository.name }}-rc
+      NEW_IMAGE_NAME: github-base-templates:${{ github.event.repository.name }}-latest
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
